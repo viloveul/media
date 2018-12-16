@@ -1,0 +1,21 @@
+{
+    "name": "zafex/viloveul-media",
+    "description": "Media component of Viloveul.",
+    "type": "framework",
+    "license": "MIT",
+    "authors": [{
+        "name": "Fajrul Akbar Zuhdi",
+        "email": "fajrulaz@gmail.com"
+    }],
+    "keywords": ["framework", "micro", "zafex", "viloveul", "fajrulaz", "media"],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "Viloveul\\Media\\": "src/"
+        }
+    }
+}
