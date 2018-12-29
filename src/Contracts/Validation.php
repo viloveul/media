@@ -4,7 +4,10 @@ namespace Viloveul\Media\Contracts;
 
 interface Validation
 {
-    public function message();
+    public function message(): string;
 
-    public function validate();
+    /**
+     * @param array $files
+     */
+    public function validate(array $files): bool;
 }

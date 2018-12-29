@@ -10,10 +10,23 @@ interface Uploader
     /**
      * @param Validation $validator
      */
-    public function addValidation(Validation $validator);
+    public function addValidation(Validation $validator): Validation;
+
+    public function clear();
+
+    public function errors(): array;
+
+    public function passed(): bool;
 
     /**
-     * @param Closure $handler
+     * @param $from
+     * @param $to
      */
-    public function upload(Closure $handler);
+    public function transfer($from, $to = null);
+
+    /**
+     * @param $index
+     * @param Closure  $handler
+     */
+    public function upload($index, Closure $handler);
 }
