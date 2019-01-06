@@ -4,6 +4,9 @@ namespace Viloveul\Media;
 
 use Closure;
 use InvalidArgumentException;
+use Psr\Http\Message\ServerRequestInterface as IServerRequest;
+use Psr\Http\Message\UploadedFileInterface as IUploadedFile;
+use RuntimeException;
 use Viloveul\Media\Contracts\Uploader as IUploader;
 use Viloveul\Media\Contracts\Validation as IValidation;
 use Viloveul\Media\TargetUploadException;
@@ -38,9 +41,10 @@ class Uploader implements IUploader
     /**
      * @param array $configs
      */
-    public function __construct(array $configs = [])
+    public function __construct(IServerRequest $request, array $configs = [])
     {
         $this->configs = $configs;
+
         if (!array_key_exists('target', $this->configs)) {
             throw new InvalidArgumentException("configs target must be set.");
         }
@@ -57,134 +61,128 @@ class Uploader implements IUploader
                 throw new TargetUploadException("target directory is not writeable.");
             }
         }
+
+        $this->prepare($request->getUploadedFiles());
     }
 
     /**
-     * @param IValidation $validator
+     * @param  string      $index
+     * @param  IValidation $validator
+     * @return mixed
      */
-    public function addValidation(IValidation $validator): IValidation
+    public function addValidation(string $index = '*', IValidation $validator): IValidation
     {
-        $this->validators[] = $validator;
+        if (!array_key_exists($index, $this->validators)) {
+            $this->validators[$index] = [];
+        }
+        $this->validators[$index][] = $validator;
         return $validator;
     }
 
-    public function clear()
+    /**
+     * @param string $rawname
+     */
+    public function transform(string $rawname): string
     {
-        $this->files = [];
-        $this->validators = [];
-        $this->messages = [];
+        $filename = mt_rand() . '-' . preg_replace('/[^a-z0-9\-\.]+/', '-', strtolower($rawname));
+        if (mb_strlen($filename, 'UTF-8') > 200) {
+            $filename = substr($filename, 0, 100) . substr($filename, -100);
+        }
+        return "{$this->directory}/{$filename}";
     }
 
     /**
+     * @param  string  $index
+     * @param  Closure $handler
      * @return mixed
      */
-    public function errors(): array
+    public function upload(string $index, Closure $handler)
     {
-        return $this->messages;
-    }
-
-    public function passed(): bool
-    {
-        foreach ($this->validators as $validator) {
-            if (false === $validator->validate($this->files)) {
-                $this->messages[] = $validator->message();
-            }
-        }
-        return count($this->messages) === 0;
-    }
-
-    /**
-     * @param $from
-     * @param $to
-     */
-    public function transfer($from, $to = null)
-    {
-        try {
-            if (empty($to)) {
-                $to = pathinfo($from, PATHINFO_BASENAME);
-            }
-
-            $to = mt_rand() . '-' . preg_replace('/[^a-z0-9\-\.]+/', '-', strtolower($to));
-
-            if (mb_strlen($to, 'UTF-8') > 200) {
-                $to = substr($to, 0, 100) . substr($to, -100);
-            }
-
-            if ($this->directory !== false && is_uploaded_file($from)) {
-                if (false !== move_uploaded_file($from, "{$this->directory}/{$to}")) {
-                    return "{$this->directory}/{$to}";
-                }
-            }
-        } catch (Exception $e) {
-            $this->messages[] = $e->getMessage();
-        }
-        return false;
-    }
-
-    /**
-     * @param  $index
-     * @param  Closure  $handler
-     * @return mixed
-     */
-    public function upload($index, Closure $handler)
-    {
-        $this->prepare($index);
-        $files = [];
         $time = date('Y-m-d H:i:s');
-        if (true === $this->passed()) {
-            foreach ($this->files as $key => $file) {
-                $filename = $this->transfer($file['tmp_name'], $file['name']);
-                if (false !== $filename) {
-                    $parts = explode('.', $key);
-                    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                    $mimetype = $file['type'];
-                    $size = $file['size'];
-                    $rawname = $file['name'];
-                    $category = $parts[0];
-                    $files[] = compact('filename', 'rawname', 'extension', 'mimetype', 'size', 'category', 'time');
+        $files = [];
+        $errors = [];
+        $uploadedFiles = [];
+
+        if ($index !== '*') {
+            $files = array_filter($this->files, function ($key) use ($index) {
+                return $key === $index || 0 === strpos($key . '.', $index);
+            }, ARRAY_FILTER_USE_KEY);
+        } else {
+            $files = $this->files;
+        }
+
+        if ($this->check($index, $files, $errors) === true) {
+            foreach ($files as $key => $file) {
+                try {
+                    $tags = $this->fillCategories($key);
+                    $filename = $this->transform($file->getClientFilename());
+                    $file->moveTo($filename);
+                    $parts = explode('/', $filename);
+                    $uploadedFiles[] = [
+                        'category' => $tags[0],
+                        'tags' => $tags,
+                        'filename' => array_pop($parts),
+                        'directory' => implode('/', $parts),
+                        'type' => $file->getClientMediaType(),
+                        'name' => $file->getClientFilename(),
+                        'size' => $file->getSize(),
+                        'time' => $time,
+                    ];
+                } catch (RuntimeException $e) {
+                    $errors[] = $e->getMEssage();
                 }
             }
         }
-        return $handler($files, $this->errors(), $this->files);
+
+        return $handler($uploadedFiles, $errors, $this->files);
     }
 
     /**
      * @param  $index
      * @return mixed
      */
-    protected function prepare($index = '*')
+    protected function check($index = '*', array $files, &$errors = [])
     {
-        if (isset($_FILES) && !empty($_FILES)) {
-            $uploadedFiles = [];
-            $arr = $index === '*' ? $_FILES : (array_key_exists($index, $_FILES) ? [$index => $_FILES[$index]] : []);
-            foreach ($arr as $category => $files) {
-                foreach (['name', 'tmp_name', 'error', 'type', 'size'] as $key) {
-                    if (array_key_exists($key, $files) && is_scalar($files[$key])) {
-                        $uploadedFiles[$category][$key] = $files[$key];
-                    } else {
-                        $this->recursive($category, $files[$key], $key, $uploadedFiles);
-                    }
-                }
-            }
-            $this->files = array_filter($uploadedFiles, function ($value) {
-                return $value['error'] == UPLOAD_ERR_OK;
-            });
+        $validators = array_key_exists('*', $this->validators) ? $this->validators['*'] : [];
+        $parts = explode('.', $index);
+        if (array_key_exists($parts[0], $this->validators)) {
+            $validators = array_merge($validators, $this->validators[$parts[0]]);
         }
+
+        foreach ($validators as $validator) {
+            if (!$validator->validate($files)) {
+                $errors[] = $validator->message();
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
-     * @param $category
-     * @param $file
-     * @param $key
-     * @param $files
+     * @param  array   $params
+     * @return mixed
      */
-    protected function recursive($category, $file, $key, &$files)
+    protected function fillCategories(string $name)
     {
-        foreach ($file as $name => $value) {
-            if (is_scalar($value)) {
-                $files[$category . '.' . $name][$key] = $value;
+        $tags = [];
+        $params = explode('.', $name);
+        foreach ($params as $key => $value) {
+            $tags[$key] = isset($tags[$key - 1]) ? ($tags[$key - 1] . '.' . $value) : $value;
+        }
+        return $tags;
+    }
+
+    /**
+     * @param array     $files
+     * @param $prefix
+     */
+    protected function prepare(array $files, $prefix = null)
+    {
+        foreach ($files as $key => $file) {
+            if ($file instanceof IUploadedFile) {
+                $this->files[$prefix . $key] = $file;
             } else {
-                $this->recursive($category . '.' . $name, $value, $key, $files);
+                $this->prepare($file, $prefix . $key . '.');
             }
         }
     }
