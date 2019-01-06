@@ -19,7 +19,7 @@ class ImageValidation implements IValidation
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $hasError = false;
         foreach ($files as $file) {
-            if (0 !== stripos(finfo_file($finfo, $file['tmp_name']), 'image')) {
+            if (0 !== stripos(finfo_file($finfo, $file->getStream()->getMetadata('uri')), 'image')) {
                 $hasError = true;
                 continue;
             }

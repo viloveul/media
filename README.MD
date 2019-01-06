@@ -8,16 +8,14 @@ composer require viloveul/media
 require __DIR__ . '/vendor/autoload.php';
 
 // init collection object
-$uploader = new Viloveul\Media\Uploader(['target' => '/path/uploads']);
+$configs = ['target' => '/path/uploads'];
+$uploader = new Viloveul\Media\Uploader($serverRequest, $configs);
 // upload all uploaded files
-$uploader->upload('*', function ($results) {
+$uploader->upload('*', function ($results, $errors) {
 	var_dump($results);
 });
 // upload specific index of $_FILES
-$uploader->upload('your_input_field', function ($results) {
+$uploader->upload('your_input_field', function ($results, $errors) {
 	var_dump($results);
 });
-var_dump($uploader->errors());
-// clear all
-$uploader->clear();
 ```

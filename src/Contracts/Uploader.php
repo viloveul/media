@@ -8,25 +8,19 @@ use Viloveul\Media\Contracts\Validation;
 interface Uploader
 {
     /**
+     * @param string     $index
      * @param Validation $validator
      */
-    public function addValidation(Validation $validator): Validation;
-
-    public function clear();
-
-    public function errors(): array;
-
-    public function passed(): bool;
+    public function addValidation(string $index, Validation $validator): Validation;
 
     /**
-     * @param $from
-     * @param $to
+     * @param string $rawname
      */
-    public function transfer($from, $to = null);
+    public function transform(string $rawname): string;
 
     /**
-     * @param $index
-     * @param Closure  $handler
+     * @param string  $index
+     * @param Closure $handler
      */
-    public function upload($index, Closure $handler);
+    public function upload(string $index, Closure $handler);
 }
