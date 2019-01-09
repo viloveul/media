@@ -1,26 +1,28 @@
 {
     "name": "viloveul/media",
-    "description": "Media component of Viloveul.",
-    "type": "component",
+    "description": "Viloveul media uploader.",
+    "type": "library",
     "license": "MIT",
+    "keywords": ["zafex", "viloveul", "fajrulaz", "media", "component", "library"],
+    "homepage": "http://www.viloveul.com",
+    "readme": "README.MD",
     "authors": [{
         "name": "Fajrul Akbar Zuhdi",
         "email": "fajrulaz@gmail.com"
     }],
-    "keywords": ["component", "zafex", "viloveul", "fajrulaz", "media"],
     "minimum-stability": "dev",
     "prefer-stable": true,
     "config": {
         "sort-packages": true
     },
-    "require": {
-        "php": "~7.0",
-        "ext-fileinfo": ">= 0.1.0",
-        "psr/http-message": "^1.0"
-    },
     "autoload": {
         "psr-4": {
             "Viloveul\\Media\\": "src/"
         }
+    },
+    "require": {
+        "php": "~7.0",
+        "ext-fileinfo": ">= 0.1.0",
+        "psr/http-message": "^1.0"
     }
 }
