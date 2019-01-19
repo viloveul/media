@@ -19,7 +19,7 @@ $config = new Viloveul\Config\Configuration([
 	'target' => '/path/uploads'
 ]);
 
-$uploader = new Viloveul\Media\Uploader($serverRequest, $configs);
+$uploader = new Viloveul\Media\Uploader($serverRequest, $config);
 
 // upload all uploaded files
 $uploader->upload('*', function ($results, $errors) {
