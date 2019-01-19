@@ -23,6 +23,11 @@
     "require": {
         "php": "~7.0",
         "ext-fileinfo": ">= 0.1.0",
-        "psr/http-message": "^1.0"
+        "psr/http-message": "^1.0",
+        "viloveul/config": "v1.*|v1.x-dev"
+    },
+    "require-dev": {
+        "viloveul/http": "v1.*|v1.x-dev",
+        "viloveul/support": "v1.*|v1.x-dev"
     }
 }
