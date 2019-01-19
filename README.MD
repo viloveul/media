@@ -12,8 +12,12 @@ composer require viloveul/media
 ```php
 require __DIR__ . '/vendor/autoload.php';
 
+$serverRequest = Viloveul\Http\Server\RequestFactory::fromGlobals();
+
 // init collection object
-$configs = ['target' => '/path/uploads'];
+$config = new Viloveul\Config\Configuration([
+	'target' => '/path/uploads'
+]);
 
 $uploader = new Viloveul\Media\Uploader($serverRequest, $configs);
 

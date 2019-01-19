@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface as IServerRequest;
 use Psr\Http\Message\UploadedFileInterface as IUploadedFile;
 use RuntimeException;
+use Viloveul\Config\Contracts\Configuration as IConfiguration;
 use Viloveul\Media\Contracts\Uploader as IUploader;
 use Viloveul\Media\Contracts\Validation as IValidation;
 use Viloveul\Media\TargetUploadException;
@@ -41,18 +42,16 @@ class Uploader implements IUploader
     /**
      * @param array $configs
      */
-    public function __construct(IServerRequest $request, array $configs = [])
+    public function __construct(IServerRequest $request, IConfiguration $config)
     {
-        $this->configs = $configs;
+        $this->configs = $config->all();
 
         if (!array_key_exists('target', $this->configs)) {
             throw new InvalidArgumentException("configs target must be set.");
         }
 
         if (!preg_match('/https?\:\/\//', $this->configs['target'])) {
-            $this->directory = realpath($this->configs['target']) . '/' . date('Y-m-d_H');
-
-            is_dir($this->directory) or mkdir($this->directory, 0777, true);
+            $this->directory = realpath($this->configs['target']);
 
             if (!is_dir($this->directory)) {
                 throw new TargetUploadException("target directory does not exists.");
@@ -85,10 +84,10 @@ class Uploader implements IUploader
     public function transform(string $rawname): string
     {
         $filename = mt_rand() . '-' . preg_replace('/[^a-z0-9\-\.]+/', '-', strtolower($rawname));
-        if (mb_strlen($filename, 'UTF-8') > 200) {
-            $filename = substr($filename, 0, 100) . substr($filename, -100);
+        if (mb_strlen($filename, 'UTF-8') > 100) {
+            $filename = substr($filename, 0, 50) . substr($filename, -50);
         }
-        return "{$this->directory}/{$filename}";
+        return md5($filename) . $filename;
     }
 
     /**
@@ -98,10 +97,15 @@ class Uploader implements IUploader
      */
     public function upload(string $index, Closure $handler)
     {
-        $time = date('Y-m-d H:i:s');
         $files = [];
         $errors = [];
         $uploadedFiles = [];
+        $year = date('Y');
+        $month = date('m');
+        $day = date('d');
+        $directory = "{$this->directory}/{$year}/{$month}/{$day}";
+
+        is_dir($directory) or mkdir($directory, 0777, true);
 
         if ($index !== '*') {
             $files = array_filter($this->files, function ($key) use ($index) {
@@ -116,25 +120,31 @@ class Uploader implements IUploader
                 try {
                     $tags = $this->fillCategories($key);
                     $filename = $this->transform($file->getClientFilename());
-                    $file->moveTo($filename);
-                    $parts = explode('/', $filename);
+                    $file->moveTo($directory . '/' . $filename);
                     $uploadedFiles[] = [
                         'category' => $tags[0],
                         'tags' => $tags,
-                        'filename' => array_pop($parts),
-                        'directory' => implode('/', $parts),
+                        'filename' => $filename,
+                        'directory' => "/{$year}/{$month}/{$day}",
+                        'realpath' => realpath("{$directory}/{$filename}"),
                         'type' => $file->getClientMediaType(),
                         'name' => $file->getClientFilename(),
                         'size' => $file->getSize(),
-                        'time' => $time,
+                        'year' => $year,
+                        'month' => $month,
+                        'day' => $day,
                     ];
                 } catch (RuntimeException $e) {
-                    $errors[] = $e->getMEssage();
+                    $errors[] = [
+                        'code' => $e->getCode(),
+                        'title' => 'Uploader ' . get_class($e) . ' ' . $index,
+                        'detail' => $e->getMEssage(),
+                    ];
                 }
             }
         }
 
-        return $handler($uploadedFiles, $errors, $this->files);
+        return $handler($uploadedFiles, $errors, $files);
     }
 
     /**
@@ -151,7 +161,11 @@ class Uploader implements IUploader
 
         foreach ($validators as $validator) {
             if (!$validator->validate($files)) {
-                $errors[] = $validator->message();
+                $errors[] = [
+                    'code' => 400,
+                    'title' => 'Uploader ' . get_class($validator) . ' ' . $index,
+                    'detail' => $validator->message(),
+                ];
                 return false;
             }
         }
@@ -181,8 +195,10 @@ class Uploader implements IUploader
         foreach ($files as $key => $file) {
             if ($file instanceof IUploadedFile) {
                 $this->files[$prefix . $key] = $file;
-            } else {
+            } elseif (is_array($file)) {
                 $this->prepare($file, $prefix . $key . '.');
+            } else {
+                throw new InvalidArgumentException("Error Processing Request");
             }
         }
     }
