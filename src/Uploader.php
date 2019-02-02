@@ -7,7 +7,6 @@ use InvalidArgumentException;
 use Psr\Http\Message\ServerRequestInterface as IServerRequest;
 use Psr\Http\Message\UploadedFileInterface as IUploadedFile;
 use RuntimeException;
-use Viloveul\Config\Contracts\Configuration as IConfiguration;
 use Viloveul\Media\Contracts\Uploader as IUploader;
 use Viloveul\Media\Contracts\Validation as IValidation;
 use Viloveul\Media\TargetUploadException;
@@ -42,9 +41,9 @@ class Uploader implements IUploader
     /**
      * @param array $configs
      */
-    public function __construct(IServerRequest $request, IConfiguration $config)
+    public function __construct(IServerRequest $request, array $configs = [])
     {
-        $this->configs = $config->all();
+        $this->configs = $configs;
 
         if (!array_key_exists('target', $this->configs)) {
             throw new InvalidArgumentException("configs target must be set.");

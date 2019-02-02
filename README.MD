@@ -14,20 +14,17 @@ require __DIR__ . '/vendor/autoload.php';
 
 $serverRequest = Viloveul\Http\Server\RequestFactory::fromGlobals();
 
-// init collection object
-$config = new Viloveul\Config\Configuration([
+$uploader = new Viloveul\Media\Uploader($serverRequest, [
 	'target' => '/path/uploads'
 ]);
 
-$uploader = new Viloveul\Media\Uploader($serverRequest, $config);
-
 // upload all uploaded files
 $uploader->upload('*', function ($results, $errors) {
-	var_dump($results);
+	dd($results);
 });
 
 // upload specific index of $_FILES
 $uploader->upload('your_input_field', function ($results, $errors) {
-	var_dump($results);
+	dd($results);
 });
 ```
