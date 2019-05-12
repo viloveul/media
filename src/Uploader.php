@@ -3,16 +3,21 @@
 namespace Viloveul\Media;
 
 use Closure;
-use InvalidArgumentException;
-use Psr\Http\Message\ServerRequestInterface as IServerRequest;
-use Psr\Http\Message\UploadedFileInterface as IUploadedFile;
 use RuntimeException;
+use InvalidArgumentException;
+use Viloveul\Media\TargetUploadException;
 use Viloveul\Media\Contracts\Uploader as IUploader;
 use Viloveul\Media\Contracts\Validation as IValidation;
-use Viloveul\Media\TargetUploadException;
+use Psr\Http\Message\UploadedFileInterface as IUploadedFile;
+use Psr\Http\Message\ServerRequestInterface as IServerRequest;
 
 class Uploader implements IUploader
 {
+    /**
+     * @var string
+     */
+    protected $baseurl = '';
+
     /**
      * @var array
      */
@@ -58,6 +63,10 @@ class Uploader implements IUploader
             if (!is_writable($this->directory)) {
                 throw new TargetUploadException("target directory is not writeable.");
             }
+        }
+
+        if (array_key_exists('baseurl', $this->configs)) {
+            $this->baseurl = rtrim($this->configs['baseurl'], '/');
         }
 
         $this->prepare($request->getUploadedFiles());
@@ -120,18 +129,16 @@ class Uploader implements IUploader
                     $tags = $this->fillCategories($key);
                     $filename = $this->transform($file->getClientFilename());
                     $file->moveTo($directory . '/' . $filename);
+                    $url = "{$this->baseurl}/{$year}/{$month}/{$day}/{$filename}";
                     $uploadedFiles[] = [
                         'category' => $tags[0],
                         'tags' => $tags,
                         'filename' => $filename,
-                        'directory' => "/{$year}/{$month}/{$day}",
                         'realpath' => realpath("{$directory}/{$filename}"),
                         'type' => $file->getClientMediaType(),
                         'name' => $file->getClientFilename(),
                         'size' => $file->getSize(),
-                        'year' => $year,
-                        'month' => $month,
-                        'day' => $day,
+                        'url' => $url,
                     ];
                 } catch (RuntimeException $e) {
                     $errors[] = [
